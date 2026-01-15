@@ -167,29 +167,37 @@ class BeaverbotPose2Node:
             rospy.logwarn("Waiting for data to publish odometry")
             return
         
-        quaternion = tf.transformations.quaternion_from_euler(0, 0, self._yaw)
+        with self._imu_data_mutex:
+            yaw = self._yaw
+            yaw_rate = self._yaw_rate
+            
+        with self._gps_data_mutex:
+            x_rear = self._x_rear
+            y_rear = self._y_rear
+            
+        quaternion = tf.transformations.quaternion_from_euler(0, 0, yaw)
         
         odom_msg = Odometry()
         odom_msg.header.stamp = rospy.get_rostime()
         odom_msg.header.frame_id = "odom"
         odom_msg.child_frame_id = "base_link"
 
-        odom_msg.pose.pose.position.x = self._x_rear
-        odom_msg.pose.pose.position.y = self._y_rear
+        odom_msg.pose.pose.position.x = x_rear
+        odom_msg.pose.pose.position.y = y_rear
         odom_msg.pose.pose.orientation.x = quaternion[0]
         odom_msg.pose.pose.orientation.y = quaternion[1]
         odom_msg.pose.pose.orientation.z = quaternion[2]
         odom_msg.pose.pose.orientation.w = quaternion[3]
 
-        odom_msg.twist.twist.angular.z = self._yaw_rate
+        odom_msg.twist.twist.angular.z = yaw_rate
 
         self._odom_pub.publish(odom_msg)
 
         self._tf_broadcaster.sendTransform(
-            (self._x_rear, self._y_rear, 0),
+            (x_rear, y_rear, 0),
             (quaternion[0], quaternion[1],
              quaternion[2], quaternion[3]),
-            rospy.Time.now(),
+            odom_msg.header.stamp,
             "base_link",
             "odom"
         )
@@ -199,11 +207,11 @@ class BeaverbotPose2Node:
         self._trajectory_msg.header.frame_id = "odom"
         self._trajectory_msg.poses.append(PoseStamped(
             header=Header(stamp=rospy.get_rostime(), frame_id="odom"),
-            pose=Pose(position=Point(x=self._x_rear, y=self._y_rear, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1))
+            pose=Pose(position=Point(x=x_rear, y=y_rear, z=0), orientation=Quaternion(x=0, y=0, z=0, w=1))
         ))
         self._trajectory_pub.publish(self._trajectory_msg)
         
-        rospy.loginfo(f"x_rear, y_rear, yaw: {self._x_rear}, {self._y_rear}, {self._yaw}")
+        rospy.loginfo(f"x_rear, y_rear, yaw: {x_rear}, {y_rear}, {yaw}")
 
     def _get_xy_from_latlon(self, lat, lon, initial_lat, initial_lon):
         """! Get x, y from latitude and longitude method
