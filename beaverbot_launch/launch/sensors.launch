@@ -1,5 +1,5 @@
 <launch>
-    <arg name="lidar_enabled" default="true" />
+    <arg name="lidar_enabled" default="false" />
     <arg name="gnss_enabled" default="true" />
     <arg name="imu_enabled" default="true" />
 
