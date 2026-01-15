@@ -22,13 +22,11 @@ class PurePursuit:
     autonomous driving.
     """
 
-    lookahead_distance = 1.0
-
-    lookahead_gain = 0.1
-
-    k = 1
-
-    wheel_base = 1.0
+    max_lookahead_distance = 0.8
+    min_lookahead_distance = 0.4
+    max_wheel_linear_speed = 0.25
+    max_wheel_angular_velocity =  1.0
+    
 
     # ==================================================================================================
     # PUBLIC METHODS
@@ -50,6 +48,29 @@ class PurePursuit:
         @param trajectory<instance>: The trajectory
         """
         self.trajectory = trajectory
+
+    def _compute_lateral_error(self, state, index):
+        if index + 1 >= len(self.trajectory.x):
+            index -= 1
+
+        x1 = self.trajectory.x[index, 0]
+        y1 = self.trajectory.x[index, 1]
+        x2 = self.trajectory.x[index+1, 0]
+        y2 = self.trajectory.x[index+1, 1]
+
+        dx = x2 - x1
+        dy = y2 - y1
+        path_yaw = math.atan2(dy, dx)
+
+        ex = state[0] - x1
+        ey = state[1] - y1
+
+        # signed cross-track error
+        e_lat = -math.sin(path_yaw) * ex + math.cos(path_yaw) * ey
+        
+        print(f"e_lat: {e_lat}")
+        
+        return e_lat
 
     def execute(self, state, input, previous_index):
         """! Execute the controller
@@ -91,10 +112,29 @@ class PurePursuit:
         )
 
         alpha = math.atan2(math.sin(alpha), math.cos(alpha))
+        alpha = max(min(alpha, math.pi / 2), -math.pi / 2)
 
-        v = 0.3
+        print(f"alpha: {alpha*180/math.pi} degrees")
+        
+        v = self.max_wheel_linear_speed
+        
+        p = 2 # how fast the lookahead distance decreases with the turn angle
+        Ld = self.min_lookahead_distance + (self.max_lookahead_distance - self.min_lookahead_distance) * (math.cos(abs(alpha)))**p
 
-        w = v * 2.0 * alpha / lookahead_distance
+        print(f"Ld: {Ld}")
+        
+        # Pure Pursuit term
+        w = 2.0 * v * math.sin(alpha) / Ld
+        
+        # Stanley lateral correction
+        k_stanley = 0.2
+        e_lat = self._compute_lateral_error(state, index)
+        # w += - k_stanley* e_lat
+        print(f"e_lat correction term: {k_stanley*e_lat} rad/s")
+        print(f"w: {w} rad/s")
+        
+        # Saturation
+        w = self.max_wheel_angular_velocity * math.tanh(w / self.max_wheel_angular_velocity)
 
         self.lookahead_point = [trajectory_x, trajectory_y]
 
@@ -125,7 +165,7 @@ class PurePursuit:
         @return<int>: The index
         @return<float>: The lookahead distance
         """
-        if not self._old_nearest_point_index:
+        if self._old_nearest_point_index is None:
             all_distance = self._calculate_distance(self.trajectory.x, state)
 
             index = np.argmin(all_distance)
@@ -150,9 +190,10 @@ class PurePursuit:
                 this_distance = next_distance
 
         self._old_nearest_point_index = index
+        
+        print(f"_old_nearest_point_index: {self._old_nearest_point_index}")
 
-        lookahead_distance = PurePursuit.lookahead_distance
-
+        lookahead_distance = self.max_lookahead_distance
         distance = self._calculate_distance(self.trajectory.x[index], state)
 
         while lookahead_distance > distance:
@@ -163,8 +204,10 @@ class PurePursuit:
 
             distance = self._calculate_distance(
                 self.trajectory.x[index], state)
-
-        return index, lookahead_distance
+            
+        print(f"index: {index}, distance: {distance}")
+        
+        return index, distance
 
     # ==================================================================================================
     # STATIC METHODS

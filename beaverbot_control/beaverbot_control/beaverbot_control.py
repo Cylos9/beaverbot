@@ -52,6 +52,8 @@ class BeaverbotControl(object):
         self._register_subscribers()
 
         self._register_timers()
+        
+        
 
     def run(self):
         """! Execute the node"""
@@ -184,7 +186,16 @@ class BeaverbotControl(object):
 
             if self._emergency_stop_flag:
                 raise Exception("Emergency stop is activated")
-
+            
+            # Log self._state to a CSV file for each call
+            try:
+                with open('/root/catkin_ws/src/beaverbot_control/log/state_log.csv', 'a') as f:
+                    if self._state is not None:
+                        row = ','.join(str(x) for x in self._state)
+                        f.write(f"{row}\n")
+            except Exception as log_exc:
+                rospy.logwarn(f"Failed to log state to CSV: {log_exc}")
+                
             status, u = self._controller.execute(
                 self._state, self._previous_u, self._index)
 
@@ -218,7 +229,7 @@ class BeaverbotControl(object):
 
         marker = Marker()
 
-        marker.header.frame_id = "map"
+        marker.header.frame_id = "odom"
 
         marker.header.stamp = rospy.Time.now()
 
@@ -234,11 +245,11 @@ class BeaverbotControl(object):
 
         marker.points.append(Point(x=lookahead_point[0], y=lookahead_point[1]))
 
-        marker.scale.x = 0.1
+        marker.scale.x = 0.05
 
-        marker.scale.y = 0.2
+        marker.scale.y = 0.05
 
-        marker.scale.z = 0.2
+        marker.scale.z = 0.05
 
         marker.color.a = 1.0
 
@@ -310,13 +321,16 @@ class BeaverbotControl(object):
         """
         path = Path()
 
-        path.header.frame_id = "map"
-
+        path.header.frame_id = "odom"
+        path.header.stamp = rospy.Time.now()
+        
         for index in range(len(trajectory.x)):
             pose = PoseStamped()
 
-            pose.header.frame_id = "map"
-
+            pose.header.frame_id = "odom"
+            
+            pose.header.stamp = rospy.Time.now()
+            
             pose.pose.position.x = trajectory.x[index, 0]
 
             pose.pose.position.y = trajectory.x[index, 1]
@@ -325,6 +339,7 @@ class BeaverbotControl(object):
 
         for _ in range(10):
             self._trajectory_publisher.publish(path)
+            rospy.sleep(0.1)
 
     def _convert_msg_to_trajectory(self, msg):
         """! Convert message to trajectory
