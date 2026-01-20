@@ -22,9 +22,9 @@ class PurePursuit:
     autonomous driving.
     """
 
-    max_lookahead_distance = 0.8
+    max_lookahead_distance = 0.9
     min_lookahead_distance = 0.4
-    max_wheel_linear_speed = 0.25
+    max_wheel_linear_speed = 0.3
     max_wheel_angular_velocity =  1.0
     
 
@@ -120,22 +120,11 @@ class PurePursuit:
         
         p = 2 # how fast the lookahead distance decreases with the turn angle
         Ld = self.min_lookahead_distance + (self.max_lookahead_distance - self.min_lookahead_distance) * (math.cos(abs(alpha)))**p
-
         print(f"Ld: {Ld}")
         
         # Pure Pursuit term
         w = 2.0 * v * math.sin(alpha) / Ld
-        
-        # Stanley lateral correction
-        k_stanley = 0.2
-        e_lat = self._compute_lateral_error(state, index)
-        # w += - k_stanley* e_lat
-        print(f"e_lat correction term: {k_stanley*e_lat} rad/s")
-        print(f"w: {w} rad/s")
-        
-        # Saturation
-        w = self.max_wheel_angular_velocity * math.tanh(w / self.max_wheel_angular_velocity)
-
+        w = max(min(w, self.max_wheel_angular_velocity), -self.max_wheel_angular_velocity)
         self.lookahead_point = [trajectory_x, trajectory_y]
 
         return status, [v, w]
