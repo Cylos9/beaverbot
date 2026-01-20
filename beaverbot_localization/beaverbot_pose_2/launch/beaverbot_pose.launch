@@ -3,8 +3,9 @@
     <node name="beaverbot_pose_2" pkg="beaverbot_pose_2" type="beaverbot_pose_2_node" output="screen">
         <param name="~publish_rate" value="20.0"/>
         <param name="~use_imu_rotation_angle" value="false"/>
-        <param name="~rotation_angle_deg" value="5.0"/> <!-- used when use_imu_rotation_angle is false -->
-        <param name="~gps_to_rear_axis" value="0.0"/>
+        <param name="~rotation_angle_deg" value="8.0"/> <!-- used when use_imu_rotation_angle is false -->
+        <param name="~gps_offset_x" value="-0.03"/>
+        <param name="~gps_offset_y" value="-0.14"/>
         <param name="~imu_offset" value="0.0"/>
         <remap from="gps/fix" to="/fix"/>
         <remap from="imu/data_raw" to="/imu"/>

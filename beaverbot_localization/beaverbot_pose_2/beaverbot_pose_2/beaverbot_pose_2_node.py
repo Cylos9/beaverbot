@@ -84,8 +84,10 @@ class BeaverbotPose2Node:
         self._publish_rate = rospy.get_param(
             "~publish_rate", 20.0)
 
-        self._gps_to_rear_axis = rospy.get_param(
-            "~gps_to_rear_axis", 0.0)
+        self._gps_offset_x = rospy.get_param(
+            "~gps_offset_x", 0.0)
+        self._gps_offset_y = rospy.get_param(
+            "~gps_offset_y", 0.0)
 
         self._imu_offset = math.radians(rospy.get_param(
             "~imu_offset", 0.0))
@@ -211,7 +213,7 @@ class BeaverbotPose2Node:
         ))
         self._trajectory_pub.publish(self._trajectory_msg)
         
-        rospy.loginfo(f"x_rear, y_rear, yaw: {x_rear}, {y_rear}, {yaw}")
+        rospy.loginfo(f"x_rear, y_rear, yaw: {x_rear}, {y_rear}, {yaw*180/math.pi} degrees")
 
     def _get_xy_from_latlon(self, lat, lon, initial_lat, initial_lon):
         """! Get x, y from latitude and longitude method
@@ -239,11 +241,11 @@ class BeaverbotPose2Node:
         y_gps_in_gps_frame = - x_gps_enu * math.sin(rotation_angle) + y_gps_enu * math.cos(rotation_angle)
         
         # convert to rear frame from gps frame (gps is along x axis of the gps frame)
-        x_gps_in_rear_frame = x_gps_in_gps_frame - self._gps_to_rear_axis
-        y_gps_in_rear_frame = y_gps_in_gps_frame
+        x_gps_in_rear_frame = x_gps_in_gps_frame + self._gps_offset_x
+        y_gps_in_rear_frame = y_gps_in_gps_frame + self._gps_offset_y
         
         # get rear position in rear frame
-        x_rear_in_rear_frame = x_gps_in_rear_frame + self._gps_to_rear_axis * math.cos(yaw)
-        y_rear_in_rear_frame = y_gps_in_rear_frame - self._gps_to_rear_axis * math.sin(yaw)
+        x_rear_in_rear_frame = x_gps_in_rear_frame - self._gps_offset_x * math.cos(yaw) + self._gps_offset_y*math.sin(yaw)
+        y_rear_in_rear_frame = y_gps_in_rear_frame - self._gps_offset_x * math.sin(yaw) - self._gps_offset_y*math.cos(yaw)
 
         return x_rear_in_rear_frame, y_rear_in_rear_frame
